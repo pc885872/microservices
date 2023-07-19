@@ -7,11 +7,15 @@ import com.user.exceptions.ResourceNotFound;
 import com.user.external.HotelServiceFeign;
 import com.user.repositories.UserRepository;
 import com.user.service.UserService;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import io.github.resilience4j.retry.annotation.Retry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -24,6 +28,8 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private RestTemplate restTemplate;
+
+    Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
 
     @Autowired
     private HotelServiceFeign hotelServiceFeign;
@@ -39,11 +45,22 @@ public class UserServiceImpl implements UserService {
         return userRepository.findAll();
     }
 
+    int retryCount = 1;
     @Override
+    //@CircuitBreaker(name="hotelRatingBreaker", fallbackMethod = "getUserByIdFallback")
+  //  @Retry(name = "hotelRatingRetry", fallbackMethod = "getUserByIdFallback")
+
     public User getUserById(String id) {
+        logger.info("Retry Count: {}", retryCount++);
         User user = userRepository.findById(id).orElseThrow(()-> new ResourceNotFound("User not found for id on " +
                                                                                               "server !!"));
         user.setRatings(getRatings(user.getUserId()));
+        return user;
+    }
+
+    public User getUserByIdFallback(String id, Exception ex) {
+        User user = User.builder().name("dummy").email("dummy@dummy.com").about("This is dummy because Rating service" +
+                                                                                        " is down").build();
         return user;
     }
 

@@ -2,6 +2,7 @@ package com.user.controller;
 
 import com.user.entities.User;
 import com.user.service.UserService;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -27,8 +28,14 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.OK).body(users);
     }
     @GetMapping("/{userId}")
-    public ResponseEntity<User> getUsers(@PathVariable String userId) {
+    @RateLimiter(name = "userRateLimiter", fallbackMethod = "getUserByIdFallback")
+    public ResponseEntity<User> getUserById(@PathVariable String userId) {
         User user = userService.getUserById(userId);
+        return ResponseEntity.status(HttpStatus.OK).body(user);
+    }
+    public ResponseEntity<User> getUserByIdFallback(String id, Exception ex) {
+        User user = User.builder().name("dummy").email("dummy@dummy.com").about("This is dummy because Rating service" +
+                                                                                        " is down").build();
         return ResponseEntity.status(HttpStatus.OK).body(user);
     }
 
